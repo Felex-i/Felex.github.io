@@ -5,8 +5,11 @@
     </title>
   </head>
   <body>
-    <h1>
-      Мой сайт лол
-    </h1>
+    <h4>1161277</h4>
+    <script>
+      const arr = JSON.parse(decodeURIComponent(location.search.slice(1)));
+      arr.sort((a, b) => a - b);
+      document.title = arr.toString();
+    </script>
   </body>
 </html>
