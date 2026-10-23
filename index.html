@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Веб-проектирование — Портфолио</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: #f0f2f5;
+            color: #333;
+            line-height: 1.6;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            padding: 40px 20px;
+            background: #1a1a2e;
+            color: #fff;
+            border-radius: 12px;
+            margin-bottom: 30px;
+        }
+
+        header h1 {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+
+        header p {
+            color: #aaa;
+        }
+
+        .projects {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+        }
+
+        .card {
+            background: #fff;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+        }
+
+        .card h2 {
+            font-size: 1.2em;
+            margin-bottom: 8px;
+            color: #1a1a2e;
+        }
+
+        .card p {
+            font-size: 0.9em;
+            color: #666;
+            margin-bottom: 15px;
+        }
+
+        .card a {
+            display: inline-block;
+            padding: 8px 16px;
+            background: #1a1a2e;
+            color: #fff;
+            text-decoration: none;
+            border-radius: 6px;
+            font-size: 0.9em;
+            transition: background 0.2s;
+        }
+
+        .card a:hover {
+            background: #2d2d4a;
+        }
+
+        footer {
+            text-align: center;
+            padding: 30px;
+            color: #999;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Веб-проектирование</h1>
+            <p>Портфолио работ</p>
+        </header>
+
+        <div class="projects">
+
+            <!-- Папка A -->
+            <div class="card">
+                <h2>Папка A</h2>
+                <p>Работы по веб-проектированию: HTML, CSS, макеты.</p>
+                <a href="https://github.com/ТВОЙ_НИК/имя_репозитория/tree/main/a" target="_blank">Открыть папку A</a>
+            </div>
+
+            <!-- Папка B -->
+            <div class="card">
+                <h2>Папка B</h2>
+                <p>Работы по веб-проектированию: JavaScript, интерактивность.</p>
+                <a href="https://github.com/ТВОЙ_НИК/имя_репозитория/tree/main/b" target="_blank">Открыть папку B</a>
+            </div>
+
+            <!-- Папка C -->
+            <div class="card">
+                <h2>Папка C</h2>
+                <p>Работы по веб-проектированию: адаптивность, проекты.</p>
+                <a href="https://github.com/ТВОЙ_НИК/имя_репозитория/tree/main/c" target="_blank">Открыть папку C</a>
+            </div>
+
+        </div>
+
+        <footer>
+            © 2026 Ерохина А.А.
+        </footer>
+    </div>
+</body>
+</html>
