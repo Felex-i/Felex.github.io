@@ -1,1 +1,162 @@
+<!doctype html>
+<html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Закупки мини-маркета · Лабораторная работа</title>
+<style>
+[hidden]{display:none!important}
+:root{font:16px/1.5 system-ui,sans-serif;color:#182e38;background:#f3f6f5}body{max-width:980px;margin:auto;padding:28px}h1{font-size:clamp(26px,5vw,40px);line-height:1.15}h2{font-size:22px}section{background:white;padding:24px;margin:20px 0;border:1px solid #d9e4df;border-radius:12px}label{display:block}input,button{font:inherit;padding:9px;border:1px solid #92a69b;border-radius:6px}input[type=text]{width:min(100%,400px);box-sizing:border-box}button{cursor:pointer;background:#e9f3ee}button:hover{background:#d1e7dc}form{display:flex;gap:12px;flex-wrap:wrap;align-items:end}input[type=number]{width:90px}.item{border-top:1px solid #dde5e0;padding:16px 0}.actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.completed .title{text-decoration:line-through;color:#63746b}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#eef3f0;padding:16px}#status{padding:12px;border-left:4px solid #527b68}small{color:#53675d}code{overflow-wrap:anywhere}
+</style>
+<header><small>Лабораторная работа / Web Storage / CRUD</small><h1>Закупки студенческого мини-маркета</h1><h4 id="login"></h4><p>Добавляйте закупки, редактируйте их и отмечайте выполненные. Данные сохраняются после перезагрузки.</p></header>
+<section><h2>Задание разработчику</h2><code>161277</code> Реализуйте <code>purchaseTask(command)</code> в отмеченном блоке скрипта. Можно добавлять вспомогательные функции внутри этого блока. Интерфейс и проверочный контракт оставьте без изменений.</p><p>Ключ: <code>webtech.minimarket.purchases.v1</code>. Храним JSON-массив записей <code>{id,title,quantity,completed}</code>. Название: 1–100 символов после trim; количество: целое число 1–999; статус: boolean. Одинаковые названия допустимы.</p><p>Эта заготовка намеренно возвращает <code>not-implemented</code>. Эталонного решения в ней нет. Полные требования и открытые испытания находятся в PDF-инструкции.</p></section>
+<section><h2>Новая закупка</h2><form id="create-form" novalidate><label>Название<br><input id="title" type="text" autocomplete="off"></label><label>Количество<br><input id="quantity" type="number" value="1" step="1"></label><button type="submit">Добавить</button></form></section>
+<p id="status" role="status" aria-live="polite"></p>
+<section><div class="actions"><h2>Список закупок</h2><button id="refresh" type="button">Прочитать хранилище</button></div><p id="empty" hidden>Список пуст. Добавьте первую закупку.</p><div id="list"></div></section>
+<section><h2>Результат последней операции</h2><pre id="result" aria-live="polite"></pre></section>
+<section><h2>Проверка перед сдачей</h2><ol><li>Создайте две записи с одинаковым названием.</li><li>Перезагрузите страницу: записи и их id должны сохраниться.</li><li>Измените одну запись и отметьте её как закупленную.</li><li>Удалите вторую запись, затем снова перезагрузите страницу.</li><li>Проверьте пустое название и дробное количество: данные не должны измениться.</li></ol><p>Опубликуйте страницу по HTTPS и сдайте ссылку в назначенный преподавателем форум Moodle. Для локальной работы используйте HTTP-сервер; итоговую проверку проводите по опубликованному адресу.</p></section>
+<script>
+'use strict';
+const STORAGE_KEY = 'webtech.minimarket.purchases.v1';
+// ===== НАЧАЛО СТУДЕНЧЕСКОГО БЛОКА =====
+const LOGIN = '161277';
 
+function getData() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : []; 
+  } catch (e) {
+    return null; 
+  }
+}
+
+function saveData(items) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+function purchaseTask(command) {
+  try {
+    if (!command || !command.action) return { ok: false, error: 'unknown-action' };
+
+    const items = getData();
+    
+    if (items === null) {
+      return { ok: false, error: 'storage-corrupted' };
+    }
+
+    if (command.action === 'list') {
+      if (!Array.isArray(items)) return { ok: false, error: 'storage-corrupted' };
+      return { ok: true, items: items };
+    }
+
+    if (command.action === 'create') {
+      const title = typeof command.title === 'string' ? command.title.trim() : '';
+      if (title.length < 1 || title.length > 100) return { ok: false, error: 'invalid-title' };
+      
+      const qty = command.quantity;
+      if (typeof qty !== 'number' || !Number.isInteger(qty) || qty < 1 || qty > 999) {
+        return { ok: false, error: 'invalid-quantity' };
+      }
+
+      const newItem = {
+        id: crypto.randomUUID(), 
+        title: title,
+        quantity: qty,
+        completed: false
+      };
+      
+      items.push(newItem);
+      if (!saveData(items)) return { ok: false, error: 'storage-unavailable' };
+      return { ok: true, item: newItem };
+    }
+
+    if (command.action === 'update') {
+      const title = typeof command.title === 'string' ? command.title.trim() : '';
+      if (title.length < 1 || title.length > 100) return { ok: false, error: 'invalid-title' };
+      
+      const qty = command.quantity;
+      if (typeof qty !== 'number' || !Number.isInteger(qty) || qty < 1 || qty > 999) {
+        return { ok: false, error: 'invalid-quantity' };
+      }
+      
+      if (typeof command.completed !== 'boolean') return { ok: false, error: 'invalid-completed' };
+
+      const index = items.findIndex(it => it.id === command.id);
+      if (index === -1) return { ok: false, error: 'not-found' };
+
+      const updatedItem = {
+        id: items[index].id,
+        title: title,
+        quantity: qty,
+        completed: command.completed
+      };
+      
+      items[index] = updatedItem;
+      if (!saveData(items)) return { ok: false, error: 'storage-unavailable' };
+      return { ok: true, item: updatedItem };
+    }
+
+    if (command.action === 'delete') {
+      const index = items.findIndex(it => it.id === command.id);
+      if (index === -1) return { ok: false, error: 'not-found' };
+
+      items.splice(index, 1); 
+      if (!saveData(items)) return { ok: false, error: 'storage-unavailable' };
+      return { ok: true, id: command.id };
+    }
+
+    return { ok: false, error: 'unknown-action' };
+
+  } catch (e) {
+    return { ok: false, error: 'storage-unavailable' };
+  }
+}
+// ===== КОНЕЦ СТУДЕНЧЕСКОГО БЛОКА =====
+// ГОТОВАЯ ОБОЛОЧКА: НЕ ИЗМЕНЯТЬ
+window.purchaseTask = purchaseTask;
+document.getElementById('login').textContent = LOGIN;
+const $ = id => document.getElementById(id);
+const messages = {'not-implemented':'Реализуйте purchaseTask в студенческом блоке.','invalid-title':'Название: от 1 до 100 символов после удаления крайних пробелов.','invalid-quantity':'Количество: целое число от 1 до 999.','invalid-completed':'Статус должен быть true или false.','not-found':'Запись не найдена. Обновите список.','unknown-action':'Неизвестная операция.','storage-corrupted':'Данные хранилища повреждены. Исходное значение не должно быть перезаписано.','storage-unavailable':'Не удалось прочитать или сохранить данные.'};
+function call(command) {
+  try { return window.purchaseTask(command); }
+  catch (e) { return {ok:false,error:'implementation-exception',message:String(e)}; }
+}
+function report(result) {
+  $('result').textContent = JSON.stringify(result,null,2);
+  $('status').textContent = result?.ok ? 'Операция выполнена.' : (messages[result?.error] || 'Ошибка реализации: проверьте JSON результата.');
+}
+function render(items) {
+  $('list').replaceChildren(); $('empty').hidden=items.length!==0;
+  for (const item of items) {
+    const row=document.createElement('div'); row.className='item'+(item.completed?' completed':''); row.dataset.id=item.id;
+    const title=document.createElement('strong'); title.className='title'; title.textContent=item.title+' — '+item.quantity+' шт.';
+    const id=document.createElement('small'); id.textContent='ID: '+item.id;
+    const actions=document.createElement('div'); actions.className='actions';
+    const label=document.createElement('label'); const check=document.createElement('input'); check.type='checkbox'; check.checked=item.completed; check.dataset.action='completed'; label.append(check,document.createTextNode(' Закуплено'));
+    check.addEventListener('change',()=>{ const value=check.checked;check.checked=item.completed;run({action:'update',id:item.id,title:item.title,quantity:item.quantity,completed:value}); });
+    const edit=document.createElement('button');edit.textContent='Редактировать'; edit.type='button';
+    const del=document.createElement('button');del.textContent='Удалить';del.type='button';del.dataset.action='delete';del.addEventListener('click',()=>run({action:'delete',id:item.id}));
+    const form=document.createElement('form');form.hidden=true;form.noValidate=true;
+    const titleLabel=document.createElement('label');titleLabel.textContent='Название';const input=document.createElement('input');input.type='text';input.value=item.title;input.name='title';titleLabel.append(input);
+    const qtyLabel=document.createElement('label');qtyLabel.textContent='Количество';const qty=document.createElement('input');qty.type='number';qty.step='1';qty.value=item.quantity;qty.name='quantity';qtyLabel.append(qty);
+    const save=document.createElement('button');save.textContent='Сохранить';save.type='submit';
+    const cancel=document.createElement('button');cancel.textContent='Отмена';cancel.type='button';cancel.addEventListener('click',()=>{form.hidden=true;});
+    form.append(titleLabel,qtyLabel,save,cancel);edit.addEventListener('click',()=>{form.hidden=false;input.focus();});
+    form.addEventListener('submit',e=>{e.preventDefault();run({action:'update',id:item.id,title:input.value,quantity:Number(qty.value),completed:item.completed});});
+    actions.append(label,edit,del);row.append(title,document.createElement('br'),id,actions,form);$('list').append(row);
+  }
+}
+function run(command) {
+  const result=call(command);report(result);
+  if(!result?.ok)return false;
+  const state=command.action==='list'?result:call({action:'list'});
+  if(!state?.ok){report(state);return false;}
+  if(!Array.isArray(state.items)){report({ok:false,error:'invalid-result'});return false;}
+  render(state.items);return true;
+}
+$('create-form').addEventListener('submit',e=>{e.preventDefault();if(run({action:'create',title:$('title').value,quantity:Number($('quantity').value)})){$('title').value='';$('quantity').value='1';}});
+$('refresh').addEventListener('click',()=>run({action:'list'}));
+run({action:'list'});
+</script></html>
