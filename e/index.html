@@ -18,16 +18,62 @@ const STORAGE_KEY = 'webtech.minimarket.purchases.v1';
 // ===== НАЧАЛО СТУДЕНЧЕСКОГО БЛОКА =====
 const LOGIN = '161277';
 
-function getData() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : []; 
-  } catch (e) {
-    return null; 
-  }
+function isPlainObject(v) {
+  return v !== null && typeof v === 'object' && !Array.isArray(v);
 }
 
-function saveData(items) {
+function isValidId(id) {
+  return typeof id === 'string' && id.length > 0;
+}
+
+function isValidTitle(t) {
+  return typeof t === 'string' && t === t.trim() && t.length >= 1 && t.length <= 100;
+}
+
+function isValidQuantity(q) {
+  return typeof q === 'number' && Number.isInteger(q) && q >= 1 && q <= 999;
+}
+
+function isValidCompleted(c) {
+  return typeof c === 'boolean';
+}
+
+function isValidRecord(r) {
+  if (!isPlainObject(r)) return false;
+  const keys = Object.keys(r);
+  if (keys.length !== 4) return false;
+  if (!('id' in r && 'title' in r && 'quantity' in r && 'completed' in r)) return false;
+  return isValidId(r.id) && isValidTitle(r.title) &&
+         isValidQuantity(r.quantity) && isValidCompleted(r.completed);
+}
+  
+function readStore() {
+  let raw;
+  try {
+    raw = localStorage.getItem(STORAGE_KEY);
+  } catch (e) {
+    return { error: 'storage-unavailable' };
+  }
+  if (raw === null) return { items: [] };
+
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (e) {
+    return { error: 'storage-corrupted' };
+  }
+  if (!Array.isArray(parsed)) return { error: 'storage-corrupted' };
+
+  const seen = new Set();
+  for (const rec of parsed) {
+    if (!isValidRecord(rec)) return { error: 'storage-corrupted' };
+    if (seen.has(rec.id)) return { error: 'storage-corrupted' };
+    seen.add(rec.id);
+  }
+  return { items: parsed };
+}
+
+function writeStore(items) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
     return true;
@@ -36,79 +82,92 @@ function saveData(items) {
   }
 }
 
+function makeId(existingIds) {
+  let id;
+  do {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      id = crypto.randomUUID();
+    } else {
+      id = 'p' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
+    }
+  } while (existingIds.has(id));
+  return id;
+}
+
 function purchaseTask(command) {
   try {
-    if (!command || !command.action) return { ok: false, error: 'unknown-action' };
+    if (!isPlainObject(command)) return { ok: false, error: 'unknown-action' };
+    const action = command.action;
 
-    const items = getData();
-    
-    if (items === null) {
-      return { ok: false, error: 'storage-corrupted' };
+    if (action === 'list') {
+      const store = readStore();
+      if (store.error) return { ok: false, error: store.error };
+      return { ok: true, items: store.items };
     }
 
-    if (command.action === 'list') {
-      if (!Array.isArray(items)) return { ok: false, error: 'storage-corrupted' };
-      return { ok: true, items: items };
-    }
-
-    if (command.action === 'create') {
+    if (action === 'create') {
       const title = typeof command.title === 'string' ? command.title.trim() : '';
-      if (title.length < 1 || title.length > 100) return { ok: false, error: 'invalid-title' };
-      
-      const qty = command.quantity;
-      if (typeof qty !== 'number' || !Number.isInteger(qty) || qty < 1 || qty > 999) {
-        return { ok: false, error: 'invalid-quantity' };
-      }
+      if (!isValidTitle(title)) return { ok: false, error: 'invalid-title' };
+      if (!isValidQuantity(command.quantity)) return { ok: false, error: 'invalid-quantity' };
 
+      const store = readStore();
+      if (store.error) return { ok: false, error: store.error };
+
+      const existingIds = new Set(store.items.map(i => i.id));
       const newItem = {
-        id: crypto.randomUUID(), 
+        id: makeId(existingIds),
         title: title,
-        quantity: qty,
+        quantity: command.quantity,
         completed: false
       };
-      
-      items.push(newItem);
-      if (!saveData(items)) return { ok: false, error: 'storage-unavailable' };
-      return { ok: true, item: newItem };
+      const next = store.items.concat([newItem]);
+      if (!writeStore(next)) return { ok: false, error: 'storage-unavailable' };
+      return { ok: true, item: { ...newItem } };
     }
 
-    if (command.action === 'update') {
+    if (action === 'update') {
+      const id = command.id;
+      if (!isValidId(id)) return { ok: false, error: 'not-found' };
+
       const title = typeof command.title === 'string' ? command.title.trim() : '';
-      if (title.length < 1 || title.length > 100) return { ok: false, error: 'invalid-title' };
-      
-      const qty = command.quantity;
-      if (typeof qty !== 'number' || !Number.isInteger(qty) || qty < 1 || qty > 999) {
-        return { ok: false, error: 'invalid-quantity' };
-      }
-      
-      if (typeof command.completed !== 'boolean') return { ok: false, error: 'invalid-completed' };
+      if (!isValidTitle(title)) return { ok: false, error: 'invalid-title' };
+      if (!isValidQuantity(command.quantity)) return { ok: false, error: 'invalid-quantity' };
+      if (!isValidCompleted(command.completed)) return { ok: false, error: 'invalid-completed' };
 
-      const index = items.findIndex(it => it.id === command.id);
-      if (index === -1) return { ok: false, error: 'not-found' };
+      const store = readStore();
+      if (store.error) return { ok: false, error: store.error };
 
-      const updatedItem = {
-        id: items[index].id,
+      const idx = store.items.findIndex(i => i.id === id);
+      if (idx === -1) return { ok: false, error: 'not-found' };
+
+      const updated = {
+        id: store.items[idx].id,
         title: title,
-        quantity: qty,
+        quantity: command.quantity,
         completed: command.completed
       };
-      
-      items[index] = updatedItem;
-      if (!saveData(items)) return { ok: false, error: 'storage-unavailable' };
-      return { ok: true, item: updatedItem };
+      const next = store.items.slice();
+      next[idx] = updated;
+      if (!writeStore(next)) return { ok: false, error: 'storage-unavailable' };
+      return { ok: true, item: { ...updated } };
     }
 
-    if (command.action === 'delete') {
-      const index = items.findIndex(it => it.id === command.id);
-      if (index === -1) return { ok: false, error: 'not-found' };
+    if (action === 'delete') {
+      const id = command.id;
+      if (!isValidId(id)) return { ok: false, error: 'not-found' };
 
-      items.splice(index, 1); 
-      if (!saveData(items)) return { ok: false, error: 'storage-unavailable' };
-      return { ok: true, id: command.id };
+      const store = readStore();
+      if (store.error) return { ok: false, error: store.error };
+
+      const idx = store.items.findIndex(i => i.id === id);
+      if (idx === -1) return { ok: false, error: 'not-found' };
+
+      const next = store.items.filter(i => i.id !== id);
+      if (!writeStore(next)) return { ok: false, error: 'storage-unavailable' };
+      return { ok: true, id: id };
     }
 
     return { ok: false, error: 'unknown-action' };
-
   } catch (e) {
     return { ok: false, error: 'storage-unavailable' };
   }
